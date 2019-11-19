@@ -33,12 +33,6 @@ endfunction
 function! s:hoogle_on_typed() abort
   let query = g:clap.input.get()
 
-  if empty(query)
-    call s:clear_job_and_matches()
-    call g:clap.display.clear()
-    return
-  endif
-
   if s:old_query ==# query
     " Let the previous search be continued
     return
@@ -61,7 +55,14 @@ endfunction
 " TODO open preview window for inital search
 " TODO invesigate highlighting
 function! s:hoogle_on_move() abort
-  let lines = systemlist(s:hoogle_bin . ' --info ' . '"' . s:format_search(g:clap.display.getcurline()) . '"')
+  let cur_sel = s:format_search(g:clap.display.getcurline())
+
+  if cur_sel ==# ''
+    call g:clap.preview.close()
+    return
+  endif
+
+  let lines = systemlist(s:hoogle_bin . ' --info ' . '"' . cur_sel . '"')
   let lines = filter(lines, 'v:val !=# ""')
   let lines = [s:preview_title] + lines
   call g:clap.preview.show(lines)
@@ -78,12 +79,25 @@ function! s:hoogle_on_move() abort
   noautocmd call win_gotoid(g:clap.input.winid)
 endfunction
 
-" Since results are given in the format `Data.IntMap.Strict lookup :: Key -> IntMap a -> Maybe a`
-" this results in a search of `Data.IntMap.Strict.lookup`
+" `Data.IntMap.Strict lookup :: Key -> IntMap a -> Maybe a` returns `Data.IntMap.Strict.lookup`
+" `module Data.Text` returns `Data.Text`
+" `package text` returns `+text`
+" `Data.Text data/newtype/type Text` returns Data.Text.Text
+" TODO classes
 function! s:format_search(line)
-  if len(a:line) >= 2
-    let l:split_line = split(a:line)
+  let l:split_line = split(a:line)
+  if stridx(a:line, ' :: ') > 0
     return l:split_line[0] . '.' . l:split_line[1]
+  elseif stridx(a:line, 'module ') == 0
+    return l:split_line[1]
+  elseif stridx(a:line, 'package ') == 0
+    return '+' . l:split_line[1]
+  elseif len(l:split_line) >= 3 && (
+        \ l:split_line[1] ==# 'data' ||
+        \ l:split_line[1] ==# 'newtype' ||
+        \ l:split_line[1] ==# 'type'
+        \ )
+    return l:split_line[0] . '.' . l:split_line[2]
   endif
   return ''
 endfunction
