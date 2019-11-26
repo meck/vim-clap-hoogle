@@ -46,7 +46,8 @@ function! s:hoogle_on_typed() abort
   call g:clap.display.clear()
 
   try
-    call clap#util#run_rooter(function('clap#dispatcher#job_start'), s:run_search(query))
+    call clap#rooter#try_set_cwd()
+    call clap#rooter#run(function('clap#dispatcher#job_start'), s:run_search(query))
   catch /^vim-clap/
     call g:clap.display.set_lines([v:exception])
   endtry
