@@ -33,24 +33,27 @@ endfunction
 function! s:hoogle_on_typed() abort
   let query = g:clap.input.get()
 
+  " Let the previous search be continued
   if s:old_query ==# query
-    " Let the previous search be continued
     return
   endif
 
-  call s:clear_job_and_matches()
+  if empty(query)
+    call s:clear_job_and_matches()
+    call g:clap.display.clear_highlight()
+    call g:clap.display.clear()
+    call g:clap.preview.close()
+    return
+  endif
+
   let s:old_query = query
 
-  " Clear the previous search result and reset cache.
-  " This should happen before the new job.
+  call s:clear_job_and_matches()
   call g:clap.display.clear()
+  call g:clap.preview.close()
 
-  try
-    call clap#rooter#try_set_cwd()
-    call clap#rooter#run(function('clap#dispatcher#job_start'), s:run_search(query))
-  catch /^vim-clap/
-    call g:clap.display.set_lines([v:exception])
-  endtry
+  call clap#rooter#try_set_cwd()
+  call clap#rooter#run(function('clap#dispatcher#job_start'), s:run_search(query))
 endfunction
 
 " TODO open preview window for inital search
@@ -108,10 +111,16 @@ function! s:clear_job_and_matches() abort
   call g:clap.display.clear_highlight()
 endfunction
 
+function! s:hoogle_exit() abort
+  call clap#dispatcher#jobstop()
+  let s:old_query = ''
+endfunction
+
 let s:hoogle = {}
 let s:hoogle.sink = function('s:hoogle_sink')
 let s:hoogle.on_typed = function('s:hoogle_on_typed')
 let s:hoogle.on_move = function('s:hoogle_on_move')
+let s:hoogle.on_exit = function('s:hoogle_exit')
 let g:clap#provider#hoogle# = s:hoogle
 
 let &cpoptions = s:save_cpo
